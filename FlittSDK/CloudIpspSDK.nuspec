@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>FlittSDK</id>
+    <version>1.0.0</version>
+    <title>FlittSDK</title>
+    <authors>D.M.</authors>
+    <owners>D.M.</owners>
+    <projectUrl>https://flitt.com</projectUrl>
+	<license type="expression">MIT</license>
+    <icon>images\icon.png</icon>
+    <iconUrl>https://flitt.com/wp-content/uploads/2024/09/Group.svg</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>A payment service provider (PSP) offers shops online services for accepting electronic payments by a variety of payment methods including credit card, bank-based payments such as direct debit, bank transfer, and real-time bank transfer based on online banking. Typically, they use a software as a service model and form a single payment gateway for their clients (merchants) to multiple payment methods.</description>
+    <releaseNotes>1.0.0 release.</releaseNotes>
+    <copyright>Copyright 2025</copyright>
+    <tags>sdk payment flitt</tags>
+	<dependencies>
+		<dependency id="Newtonsoft.Json" version="13.0.3" />
+	</dependencies>
+  </metadata>
+  <files>
+	<file src="bin\Release\**\*.dll" target="lib" />
+	<file src="bin\Release\**\*.pdb" target="lib" />
+    <file src="images\icon.png" target="images\" />
+  </files>
+</package>

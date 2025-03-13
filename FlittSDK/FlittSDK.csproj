@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<PackageVersion>1.0.0</PackageVersion>
+		<TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<RootNamespace>CloudlpspSDK</RootNamespace>
+		<Title>Flitt C# SDK</Title>
+		<Authors>D.M.</Authors>
+		<PackageReleaseNotes>First Release</PackageReleaseNotes>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Properties\" />
+	</ItemGroup>
+</Project>

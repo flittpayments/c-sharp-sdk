@@ -13,6 +13,15 @@
 - Added the instance-based `FlittClient`, `FlittClientOptions`, and
   `IFlittClient` for DI, mocks, multi-merchant isolation, and configurable
   timeouts.
+- Added URI-based `BaseAddress`; the host-only `ApiHost` property remains as an
+  obsolete compatibility alias.
+- Added ASP.NET Core `AddFlitt()` registration backed by `IHttpClientFactory`
+  and `IFlittClientFactory` for dynamic multi-merchant applications.
+- Caller cancellation now propagates as `OperationCanceledException`; only SDK
+  timeout cancellation is converted to error code `408`.
+- The default non-DI transport now shares a safe long-lived `HttpClient`.
+- Aligned NuGet license metadata and the packaged license with
+  `GPL-3.0-only`.
 - Deprecated the static `Config`/`Client` compatibility path and XML transport;
   both remain available for 1.x compatibility.
 - Removed `WebRequest`/`HttpWebRequest`; asynchronous calls now use real

@@ -37,15 +37,11 @@ namespace FlittSDK
                 throw new ArgumentException("Protocol 2.0 supports JSON only.", nameof(options));
             }
 
-            if (string.IsNullOrWhiteSpace(options.ApiHost))
-            {
-                throw new ArgumentException("API host is required.", nameof(options));
-            }
+            BaseAddress = NormalizeBaseAddress(options.BaseAddress);
 
             MerchantId = options.MerchantId;
             SecretKey = options.SecretKey;
             CreditKey = options.CreditKey;
-            ApiHost = options.ApiHost;
             Protocol = options.Protocol;
             ContentType = contentType;
             _timeout = options.Timeout;
@@ -58,7 +54,13 @@ namespace FlittSDK
 
         public string CreditKey { get; }
 
-        public string ApiHost { get; }
+        public Uri BaseAddress { get; }
+
+        [Obsolete("Use BaseAddress.")]
+        public string ApiHost
+        {
+            get { return BaseAddress.Authority; }
+        }
 
         public string Protocol { get; }
 
@@ -90,7 +92,7 @@ namespace FlittSDK
                 : RequiredParams.ConvertRequestByContentType(request, ContentType);
 
             string responseBody = await SendAsync(
-                Endpoint + actionUrl.TrimStart('/'),
+                new Uri(BaseAddress, actionUrl.TrimStart('/')),
                 data,
                 GetContentTypeHeader(ContentType),
                 null,
@@ -141,12 +143,34 @@ namespace FlittSDK
             CancellationToken cancellationToken = default(CancellationToken)
         )
         {
-            return SendAsync(url, json, "application/json; charset=utf-8", headers, cancellationToken);
+            return SendAsync(
+                new Uri(url, UriKind.Absolute),
+                json,
+                "application/json; charset=utf-8",
+                headers,
+                cancellationToken
+            );
         }
 
-        private string Endpoint
+        private static Uri NormalizeBaseAddress(Uri baseAddress)
         {
-            get { return "https://" + ApiHost.TrimEnd('/') + "/api/"; }
+            if (baseAddress == null || !baseAddress.IsAbsoluteUri)
+            {
+                throw new ArgumentException("BaseAddress must be an absolute URI.", nameof(baseAddress));
+            }
+
+            if (baseAddress.Scheme != Uri.UriSchemeHttps && baseAddress.Scheme != Uri.UriSchemeHttp)
+            {
+                throw new ArgumentException("BaseAddress must use HTTP or HTTPS.", nameof(baseAddress));
+            }
+
+            var builder = new UriBuilder(baseAddress)
+            {
+                Path = baseAddress.AbsolutePath.TrimEnd('/') + "/",
+                Query = string.Empty,
+                Fragment = string.Empty
+            };
+            return builder.Uri;
         }
 
         private static string GetContentTypeHeader(string type)
@@ -163,7 +187,7 @@ namespace FlittSDK
         }
 
         private async Task<string> SendAsync(
-            string url,
+            Uri url,
             string body,
             string contentType,
             IDictionary<string, string> headers,
@@ -201,12 +225,11 @@ namespace FlittSDK
                 }
                 catch (OperationCanceledException exception)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     throw new ClientException
                     {
-                        ErrorCode = cancellationToken.IsCancellationRequested ? "499" : "408",
-                        ErrorMessage = cancellationToken.IsCancellationRequested
-                            ? "Request was cancelled"
-                            : "Request timed out",
+                        ErrorCode = "408",
+                        ErrorMessage = "Request timed out",
                         RequestId = exception.Message
                     };
                 }

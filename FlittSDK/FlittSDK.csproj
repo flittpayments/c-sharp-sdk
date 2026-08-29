@@ -9,17 +9,18 @@
 		<Title>Flitt C# SDK</Title>
 		<Authors>D.M.</Authors>
 		<Description>Official-style .NET client for the Flitt payment API.</Description>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
 		<PackageProjectUrl>https://docs.flitt.com/sdk-and-mobile/sdk/csharp/</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/flittpayments/c-sharp-sdk</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>icon.png</PackageIcon>
-		<PackageReleaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs and custom transports.</PackageReleaseNotes>
+		<PackageReleaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs, AddFlitt DI, dynamic multi-merchant factory and HttpClient transport.</PackageReleaseNotes>
 		<Deterministic>true</Deterministic>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Folder Include="Properties\" />
@@ -27,6 +28,7 @@
 	<ItemGroup>
 	  <None Include="..\README.md" Pack="true" PackagePath="\" />
 	  <None Include="..\CHANGELOG.md" Pack="true" PackagePath="\" />
+	  <None Include="..\LICENSE" Pack="true" PackagePath="\" />
 	  <None Include="images\icon.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 </Project>

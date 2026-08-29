@@ -17,14 +17,20 @@ namespace FlittSDK
     }
 
     /// <summary>
-    /// Default transport backed by a reusable HttpClient.
+    /// Default transport backed by a process-wide reusable HttpClient. When a
+    /// HttpClient is supplied explicitly, its lifetime remains owned by the caller.
     /// </summary>
     public sealed class HttpClientTransport : IFlittTransport
     {
+        private static readonly HttpClient SharedHttpClient = new HttpClient
+        {
+            Timeout = System.Threading.Timeout.InfiniteTimeSpan
+        };
+
         private readonly HttpClient _httpClient;
 
         public HttpClientTransport()
-            : this(new HttpClient {Timeout = System.Threading.Timeout.InfiniteTimeSpan})
+            : this(SharedHttpClient)
         {
         }
 

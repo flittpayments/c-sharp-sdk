@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +16,9 @@ namespace FlittSDK
 
         string CreditKey { get; }
 
+        Uri BaseAddress { get; }
+
+        [Obsolete("Use BaseAddress.")]
         string ApiHost { get; }
 
         string Protocol { get; }

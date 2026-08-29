@@ -8,13 +8,14 @@ work_dir="$(mktemp -d)"
 feed_dir="${work_dir}/feed"
 upgrade_dir="${work_dir}/UpgradeFrom1"
 baseline_package="${FLITT_BASELINE_PACKAGE:-/tmp/flitt-original-csharp-sdk/FlittSDK/bin/Release/FlittSDK.1.0.0.nupkg}"
+export NUGET_PACKAGES="${work_dir}/packages"
 
 cleanup() {
   rm -rf "${work_dir}"
 }
 trap cleanup EXIT
 
-mkdir -p "${feed_dir}"
+mkdir -p "${feed_dir}" "${NUGET_PACKAGES}"
 "${dotnet_exe}" pack "${repo_dir}/FlittSDK/FlittSDK.csproj" \
   --configuration Release \
   --output "${feed_dir}"

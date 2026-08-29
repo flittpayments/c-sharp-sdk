@@ -9,4 +9,7 @@
   <ItemGroup>
     <PackageReference Include="FlittSDK" Version="2.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 </Project>

@@ -6,7 +6,6 @@ using FlittSDK.Payment;
 const int MerchantId = 1549901;
 const string SecretKey = "test";
 const string CreditKey = "testcredit";
-const string ApiHost = "pay.flitt.com";
 const string Card = "4444555511116666";
 const string Card3Ds = "4444555566661111";
 const string Cvv = "111";
@@ -135,7 +134,7 @@ IFlittClient Client(FlittContentType contentType)
         MerchantId = MerchantId,
         SecretKey = SecretKey,
         CreditKey = CreditKey,
-        ApiHost = ApiHost,
+        BaseAddress = new Uri("https://pay.flitt.com/api/"),
         Protocol = "1.0",
         ContentType = contentType,
         Timeout = TimeSpan.FromSeconds(30)

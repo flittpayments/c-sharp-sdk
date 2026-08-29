@@ -30,7 +30,10 @@
                 MerchantId = Config.MerchantId,
                 SecretKey = isCredit ? Config.SecretKey : (secretKey ?? Config.SecretKey),
                 CreditKey = isCredit ? (secretKey ?? Config.CreditKey) : Config.CreditKey,
-                ApiHost = apiHost ?? Config.ApiHost,
+                BaseAddress = new System.Uri(
+                    "https://" + (apiHost ?? Config.ApiHost).TrimEnd('/') + "/api/",
+                    System.UriKind.Absolute
+                ),
                 Protocol = protocol ?? Config.Protocol,
                 ContentType = ParseContentType(contentType ?? Config.ContentType),
                 Timeout = Config.Timeout,

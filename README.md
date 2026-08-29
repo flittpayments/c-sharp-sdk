@@ -33,6 +33,7 @@ IFlittClient client = new FlittClient(new FlittClientOptions {
   MerchantId = 1549901,
   SecretKey = "test",
   CreditKey = "testcredit",
+  BaseAddress = new Uri("https://pay.flitt.com/api/"),
   Protocol = "2.0",
   Timeout = TimeSpan.FromSeconds(30)
 });
@@ -103,24 +104,40 @@ var fiscal = new FlittSDK.Order.FiscalData(client).Post(
 ## Dependency injection, async, and transport
 
 `FlittClient` keeps credentials and response state per instance/per request.
-Register `IFlittClient` once per merchant in a DI container and inject it into
-endpoint classes. All primary endpoint classes provide true asynchronous
-counterparts accepting a `CancellationToken`:
+For ASP.NET Core, `AddFlitt()` registers a default `IFlittClient`,
+`IFlittClientFactory`, and a named client managed by `IHttpClientFactory`.
+All primary endpoint classes provide true asynchronous counterparts accepting
+a `CancellationToken`:
 
 ```csharp
-services.AddSingleton<IFlittClient>(new FlittClient(new FlittClientOptions {
-    MerchantId = merchantId,
-    SecretKey = secretKey,
-    CreditKey = creditKey,
-    Protocol = "2.0",
-    Timeout = TimeSpan.FromSeconds(15),
-    Transport = new HttpClientTransport(httpClient)
-}));
+builder.Services.AddFlitt(options => {
+    options.MerchantId = merchantId;
+    options.SecretKey = secretKey;
+    options.CreditKey = creditKey;
+    options.BaseAddress = new Uri("https://pay.flitt.com/api/");
+    options.Protocol = "2.0";
+    options.Timeout = TimeSpan.FromSeconds(15);
+});
 
 var response = await new Token(client).PostAsync(request, cancellationToken);
 ```
 
-The transport is based exclusively on reusable `HttpClient`; there is no
+For dynamic multi-merchant applications, inject `IFlittClientFactory`:
+
+```csharp
+IFlittClient merchantClient = factory.CreateClient(
+    merchantId,
+    merchantSecretKey,
+    merchantCreditKey
+);
+```
+
+Use `factory.CreateClient(new FlittClientOptions { ... })` when a merchant also
+requires a different `BaseAddress`, protocol, content type, or timeout.
+
+The default non-DI transport shares one long-lived `HttpClient`. ASP.NET Core
+registrations use `IHttpClientFactory` and dispose its short-lived client after
+each buffered response while the factory manages handler lifetime. There is no
 `WebRequest`/`HttpWebRequest` path. Custom transports implement
 `IFlittTransport`, which also makes integration tests deterministic without
 sending payment requests. `IFlittClient` can be mocked directly.
@@ -129,6 +146,10 @@ The static `Config` and `Client` APIs are obsolete compatibility facades. They
 remain available so existing 1.x binaries and source integrations continue to
 work, but new multi-merchant or concurrent applications should not use them.
 `FlittContentType.Xml` and `XmlFormatter` are also obsolete; migrate to JSON.
+Caller-requested cancellation propagates as `OperationCanceledException` with
+the caller's token; SDK timeouts remain `ClientException` with code `408`.
+
+The repository and NuGet package are licensed under `GPL-3.0-only`.
 
 ## Company Reports
 

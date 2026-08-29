@@ -7,6 +7,7 @@ using FlittSDK.Checkout;
 using FlittSDK.Order;
 using FlittSDK.Payment;
 using FlittSDK.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 
 internal static class Program
@@ -41,6 +42,8 @@ internal static class Program
         await TestFiscalDataAndAtolShim(client, transport);
         await TestCompanyReports(client, transport);
         await TestCancellationAndTimeout();
+        await TestDependencyInjectionAndFactory(transport);
+        await TestHttpClientFactoryLifetime();
         await TestLegacyFacade(transport);
         TestDeprecationMetadata();
 
@@ -60,7 +63,7 @@ internal static class Program
             MerchantId = merchantId,
             SecretKey = secretKey,
             CreditKey = "testcredit",
-            ApiHost = "pay.flitt.test",
+            BaseAddress = new Uri("https://pay.flitt.test/api/"),
             Protocol = protocol,
             ContentType = FlittContentType.Json,
             Timeout = timeout ?? TimeSpan.FromSeconds(30),
@@ -232,16 +235,18 @@ internal static class Program
             cancellation.Cancel();
             try
             {
-                await cancelledClient.InvokeAsync<CheckoutRequest, CheckoutResponse>(
-                    new CheckoutRequest {order_id = "cancel"},
-                    "cancel/",
-                    cancellationToken: cancellation.Token
-                );
+                await new Url(cancelledClient).PostAsync(new CheckoutRequest
+                {
+                    order_id = "cancel",
+                    order_desc = "Cancellation",
+                    amount = 1,
+                    currency = "GEL"
+                }, cancellation.Token);
                 throw new InvalidOperationException("Cancellation did not fail");
             }
-            catch (ClientException exception)
+            catch (OperationCanceledException exception)
             {
-                Assert(exception.ErrorCode == "499", "Caller cancellation status");
+                Assert(exception.CancellationToken == cancellation.Token, "Caller cancellation token");
             }
         }
 
@@ -266,6 +271,43 @@ internal static class Program
         }
     }
 
+    private static async Task TestDependencyInjectionAndFactory(FakeTransport transport)
+    {
+        var services = new ServiceCollection();
+        services.AddFlitt(options =>
+        {
+            options.MerchantId = 1549901;
+            options.SecretKey = "test";
+            options.CreditKey = "testcredit";
+            options.BaseAddress = new Uri("https://pay.flitt.test/api/");
+            options.Protocol = "2.0";
+            options.Transport = transport;
+        });
+
+        using (var provider = services.BuildServiceProvider())
+        {
+            var defaultClient = provider.GetRequiredService<IFlittClient>();
+            var factory = provider.GetRequiredService<IFlittClientFactory>();
+            Assert(defaultClient.BaseAddress.AbsoluteUri == "https://pay.flitt.test/api/",
+                "DI BaseAddress");
+
+            var merchantClient = factory.CreateClient(3549901, "dynamic-secret", "dynamic-credit");
+            Assert(merchantClient.MerchantId == 3549901, "Factory merchant ID");
+            Assert(merchantClient.SecretKey == "dynamic-secret", "Factory merchant secret");
+
+            var response = await new Url(merchantClient).PostAsync(new CheckoutRequest
+            {
+                order_id = "factory-merchant",
+                order_desc = "Dynamic merchant",
+                amount = 300,
+                currency = "GEL"
+            });
+            Assert(response.checkout_url.EndsWith("factory-merchant"), "Factory client request");
+            Assert((int) transport.Last("checkout/url/").Root["merchant_id"] == 3549901,
+                "Factory request merchant isolation");
+        }
+    }
+
     private static async Task TestLegacyFacade(FakeTransport transport)
     {
 #pragma warning disable CS0618
@@ -281,6 +323,33 @@ internal static class Program
         Assert(response.checkout_url.EndsWith("legacy-config"), "Legacy Config compatibility");
         Assert(transport.Last("checkout/url/").Root["merchant_id"].Value<int>() == 1549901,
             "Legacy merchant compatibility");
+    }
+
+    private static async Task TestHttpClientFactoryLifetime()
+    {
+        var httpClientFactory = new RecordingHttpClientFactory();
+        var factory = new FlittClientFactory(new FlittClientOptions
+        {
+            MerchantId = 4549901,
+            SecretKey = "factory-http-secret",
+            BaseAddress = new Uri("https://pay.flitt.test/api/")
+        }, httpClientFactory);
+        var client = factory.CreateClient(4549901, "factory-http-secret");
+
+        for (int index = 0; index < 2; index++)
+        {
+            var response = await new Url(client).PostAsync(new CheckoutRequest
+            {
+                order_id = "http-factory-" + index,
+                order_desc = "HTTP factory lifetime",
+                amount = 1,
+                currency = "GEL"
+            });
+            Assert(response.Error == null, "IHttpClientFactory response");
+        }
+
+        Assert(httpClientFactory.CreateCount == 2, "IHttpClientFactory client per request");
+        Assert(httpClientFactory.DisposeCount == 2, "IHttpClientFactory client disposal");
     }
 
     private static void TestDeprecationMetadata()
@@ -458,6 +527,60 @@ internal sealed class HangingTransport : IFlittTransport
     {
         await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         throw new InvalidOperationException("Unreachable");
+    }
+}
+
+internal sealed class RecordingHttpClientFactory : IHttpClientFactory
+{
+    private int _createCount;
+    private int _disposeCount;
+
+    public int CreateCount => _createCount;
+
+    public int DisposeCount => _disposeCount;
+
+    public HttpClient CreateClient(string name)
+    {
+        Interlocked.Increment(ref _createCount);
+        return new HttpClient(new RecordingHandler(this))
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+    }
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        private readonly RecordingHttpClientFactory _owner;
+
+        internal RecordingHandler(RecordingHttpClientFactory owner)
+        {
+            _owner = owner;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"response\":{\"response_status\":\"success\",\"checkout_url\":\"https://bank.example/factory\",\"payment_id\":1}}",
+                    Encoding.UTF8,
+                    "application/json"
+                )
+            });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Interlocked.Increment(ref _owner._disposeCount);
+            }
+
+            base.Dispose(disposing);
+        }
     }
 }
 

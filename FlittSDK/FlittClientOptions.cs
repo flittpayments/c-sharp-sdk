@@ -21,13 +21,51 @@ namespace FlittSDK
     /// </summary>
     public sealed class FlittClientOptions
     {
+        private Uri _baseAddress = new Uri("https://pay.flitt.com/api/", UriKind.Absolute);
+
         public int MerchantId { get; set; }
 
         public string SecretKey { get; set; }
 
         public string CreditKey { get; set; }
 
-        public string ApiHost { get; set; } = "pay.flitt.com";
+        /// <summary>
+        /// Absolute Flitt API root. A trailing slash is normalized by FlittClient.
+        /// </summary>
+        public Uri BaseAddress
+        {
+            get { return _baseAddress; }
+            set { _baseAddress = value; }
+        }
+
+        /// <summary>
+        /// Legacy host-only configuration. Use BaseAddress instead.
+        /// </summary>
+        [Obsolete("Use BaseAddress with an absolute URI, for example https://pay.flitt.com/api/.")]
+        public string ApiHost
+        {
+            get { return _baseAddress == null ? null : _baseAddress.Authority; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    _baseAddress = null;
+                    return;
+                }
+
+                Uri absolute;
+                if (Uri.TryCreate(value, UriKind.Absolute, out absolute))
+                {
+                    _baseAddress = absolute;
+                    return;
+                }
+
+                _baseAddress = new Uri(
+                    "https://" + value.Trim().TrimEnd('/') + "/api/",
+                    UriKind.Absolute
+                );
+            }
+        }
 
         public string Protocol { get; set; } = "1.0";
 

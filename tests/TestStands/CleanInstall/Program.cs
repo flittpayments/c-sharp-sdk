@@ -4,19 +4,25 @@ using System.Text;
 using System.Text.Json;
 using FlittSDK;
 using FlittSDK.Checkout;
+using Microsoft.Extensions.DependencyInjection;
 
 var transport = new StandTransport();
-IFlittClient client = new FlittClient(new FlittClientOptions
+var services = new ServiceCollection();
+services.AddFlitt(options =>
 {
-    MerchantId = 1549901,
-    SecretKey = "test",
-    CreditKey = "testcredit",
-    ApiHost = "pay.flitt.test",
-    Protocol = "2.0",
-    ContentType = FlittContentType.Json,
-    Timeout = TimeSpan.FromSeconds(2),
-    Transport = transport
+    options.MerchantId = 1549901;
+    options.SecretKey = "test";
+    options.CreditKey = "testcredit";
+    options.BaseAddress = new Uri("https://pay.flitt.test/api/");
+    options.Protocol = "2.0";
+    options.ContentType = FlittContentType.Json;
+    options.Timeout = TimeSpan.FromSeconds(2);
+    options.Transport = transport;
 });
+using var provider = services.BuildServiceProvider();
+IFlittClient client = provider.GetRequiredService<IFlittClient>();
+IFlittClientFactory factory = provider.GetRequiredService<IFlittClientFactory>();
+IFlittClient dynamicClient = factory.CreateClient(2549901, "dynamic-secret", "dynamic-credit");
 
 var response = await new Url(client).PostAsync(new CheckoutRequest
 {
@@ -31,6 +37,8 @@ Assert(response.checkout_url == "https://bank.example/clean-install", "checkout 
 Assert(transport.RequestCount == 1, "request count");
 Assert(transport.LastMerchantId == 1549901, "merchant ID");
 Assert(transport.LastEnvelopeSignatureLength == 40, "v2 signature");
+Assert(dynamicClient.MerchantId == 2549901, "dynamic merchant factory");
+Assert(dynamicClient.BaseAddress == client.BaseAddress, "factory defaults");
 Console.WriteLine("Clean install stand passed with FlittSDK 2.0.0.");
 
 static void Assert(bool condition, string name)

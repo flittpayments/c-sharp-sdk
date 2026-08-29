@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace FlittSDK
 {
@@ -21,8 +19,9 @@ namespace FlittSDK
         )
         {
             _defaults = Clone(defaults ?? throw new ArgumentNullException(nameof(defaults)));
-            _factoryTransport = new HttpClientFactoryTransport(
-                httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory))
+            _factoryTransport = new HttpClientTransport(
+                httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory)),
+                HttpClientName
             );
         }
 
@@ -63,31 +62,6 @@ namespace FlittSDK
                 Timeout = source.Timeout,
                 Transport = source.Transport
             };
-        }
-
-        private sealed class HttpClientFactoryTransport : IFlittTransport
-        {
-            private readonly IHttpClientFactory _httpClientFactory;
-
-            internal HttpClientFactoryTransport(IHttpClientFactory httpClientFactory)
-            {
-                _httpClientFactory = httpClientFactory;
-            }
-
-            public async Task<HttpResponseMessage> SendAsync(
-                HttpRequestMessage request,
-                CancellationToken cancellationToken
-            )
-            {
-                using (var client = _httpClientFactory.CreateClient(HttpClientName))
-                {
-                    return await client.SendAsync(
-                        request,
-                        HttpCompletionOption.ResponseContentRead,
-                        cancellationToken
-                    ).ConfigureAwait(false);
-                }
-            }
         }
     }
 }

@@ -19,7 +19,9 @@
   and `IFlittClientFactory` for dynamic multi-merchant applications.
 - Caller cancellation now propagates as `OperationCanceledException`; only SDK
   timeout cancellation is converted to error code `408`.
-- The default non-DI transport now shares a safe long-lived `HttpClient`.
+- The default non-DI transport now uses a shared `IHttpClientFactory` with a
+  five-minute handler lifetime, preserving connection pooling while refreshing
+  DNS endpoints in long-running processes.
 - Aligned NuGet license metadata and the packaged license with
   `GPL-3.0-only`.
 - Deprecated the static `Config`/`Client` compatibility path and XML transport;

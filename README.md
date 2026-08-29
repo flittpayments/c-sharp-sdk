@@ -135,9 +135,11 @@ IFlittClient merchantClient = factory.CreateClient(
 Use `factory.CreateClient(new FlittClientOptions { ... })` when a merchant also
 requires a different `BaseAddress`, protocol, content type, or timeout.
 
-The default non-DI transport shares one long-lived `HttpClient`. ASP.NET Core
-registrations use `IHttpClientFactory` and dispose its short-lived client after
-each buffered response while the factory manages handler lifetime. There is no
+The default non-DI transport uses a process-wide `IHttpClientFactory` with a
+five-minute handler lifetime, preserving connection pooling while periodically
+refreshing DNS endpoints. ASP.NET Core registrations use the application's
+`IHttpClientFactory` and dispose each short-lived client after the buffered
+response while the factory manages handler lifetime. There is no
 `WebRequest`/`HttpWebRequest` path. Custom transports implement
 `IFlittTransport`, which also makes integration tests deterministic without
 sending payment requests. `IFlittClient` can be mocked directly.

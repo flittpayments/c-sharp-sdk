@@ -12,7 +12,7 @@
     <iconUrl>https://flitt.com/wp-content/uploads/2024/09/Group.svg</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A payment service provider (PSP) offers shops online services for accepting electronic payments by a variety of payment methods including credit card, bank-based payments such as direct debit, bank transfer, and real-time bank transfer based on online banking. Typically, they use a software as a service model and form a single payment gateway for their clients (merchants) to multiple payment methods.</description>
-	<releaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs, AddFlitt DI, dynamic multi-merchant factory and HttpClient transport.</releaseNotes>
+		<releaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs, AddFlitt DI, dynamic multi-merchant factory and DNS-safe HttpClient handler rotation.</releaseNotes>
 	<copyright>Copyright 2026</copyright>
     <tags>sdk payment flitt</tags>
 	<dependencies>

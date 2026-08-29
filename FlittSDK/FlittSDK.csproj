@@ -15,7 +15,7 @@
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>icon.png</PackageIcon>
-		<PackageReleaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs, AddFlitt DI, dynamic multi-merchant factory and HttpClient transport.</PackageReleaseNotes>
+		<PackageReleaseNotes>Open Banking, installments, IBAN payouts, fiscal data, Company Reports, full capture/reverse, async APIs, AddFlitt DI, dynamic multi-merchant factory and DNS-safe HttpClient handler rotation.</PackageReleaseNotes>
 		<Deterministic>true</Deterministic>
 	</PropertyGroup>
 	<ItemGroup>

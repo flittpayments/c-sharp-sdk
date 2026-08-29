@@ -1,30 +1,16 @@
 ﻿using System;
-using System.IO;
-using System.Net;
-using System.Text;
-using FlittSDK.Models;
-using FlittSDK.Utils;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FlittSDK
 {
+    /// <summary>
+    /// Legacy static client facade. New code should inject IFlittClient.
+    /// </summary>
+    [Obsolete("Static Client is retained for compatibility only. Inject IFlittClient instead.")]
     public static class Client
     {
-        private static int _statusCode;
-        private static string _response;
-        private static string _agent = "CloudIpsp-c-SDK";
-        private static string _method = "POST";
-
-        /// <summary>
-        /// Basic Client
-        /// </summary>
-        /// <param name="req"></param>
-        /// <param name="actionUrl"></param>
-        /// <param name="isRoot"></param>
-        /// <param name="isCredit"></param>
-        /// <typeparam name="TCipspRequest"></typeparam>
-        /// <typeparam name="TCipspResponse"></typeparam>
-        /// <returns></returns>
-        /// <exception cref="ClientException"></exception>
         public static TCipspResponse Invoke<TCipspRequest, TCipspResponse>(
             TCipspRequest req,
             string actionUrl,
@@ -32,116 +18,92 @@ namespace FlittSDK
             bool isCredit = false
         )
         {
-            string data;
-            if (Config.Protocol == "2.0")
-            {
-                // In protocol v2 Only json allowed
-                if (Config.ContentType != "json")
-                {
-                    throw new ClientException
-                    {
-                        ErrorMessage = "In protocol v2 only json content allowed",
-                        ErrorCode = "0"
-                    };
-                }
-
-                data = RequiredParams.GetParamsV2(req, isCredit);
-            }
-            else
-            {
-                data = RequiredParams.ConvertRequestByContentType(req);
-            }
-
-            string uriString = Config.Endpoint(null) + actionUrl;
-
-            HttpWebRequest conn = WebRequest.CreateHttp(new Uri(uriString)) as HttpWebRequest;
-            conn.ContentType = GetContentTypeHeader(Config.ContentType);
-            conn.UserAgent = _agent;
-            conn.Method = _method;
-            byte[] requestData = Encoding.UTF8.GetBytes(data);
-            var resultRequest = conn.BeginGetRequestStream(null, null);
-            using (Stream postStream = conn.EndGetRequestStream(resultRequest))
-            {
-                postStream.Write(requestData, 0, requestData.Length);
-                postStream.Dispose();
-            }
-
-            execute(conn);
-            if (_statusCode != 200)
-            {
-                throw new ClientException
-                {
-                    ErrorCode = "500",
-                    ErrorMessage = _response,
-                    RequestId = "Server is gone",
-                };
-            }
-
-            ErrorResponseModel errorResponse =
-                RequiredParams.ConvertResponseByContentType<ErrorResponseModel>(_response, isRoot);
-            if (errorResponse.response_status == "failure" || errorResponse.error_message != null)
-            {
-                throw new ClientException
-                {
-                    ErrorCode = errorResponse.error_code,
-                    ErrorMessage = errorResponse.error_message,
-                    RequestId = errorResponse.request_id,
-                };
-            }
-
-            TCipspResponse normalResponse =
-                RequiredParams.ConvertResponseByContentType<TCipspResponse>(_response, isRoot);
-            return normalResponse;
+            return LegacyConfigClientFactory.Create().Invoke<TCipspRequest, TCipspResponse>(
+                req,
+                actionUrl,
+                isRoot,
+                isCredit
+            );
         }
 
-        /// <summary>
-        /// Executes the request
-        /// </summary>
-        /// <param name="request"></param>
-        private static void execute(HttpWebRequest request)
+        public static Task<TResponse> InvokeAsync<TRequest, TResponse>(
+            TRequest req,
+            string actionUrl,
+            bool isRoot = true,
+            bool isCredit = false,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
         {
-            try
-            {
-                using (HttpWebResponse httpResponse = request.GetResponse() as HttpWebResponse)
-                {
-                    _statusCode = (int) httpResponse.StatusCode;
-                    StreamReader reader = new StreamReader(httpResponse.GetResponseStream(), Encoding.UTF8, true);
-                    _response = reader.ReadToEnd();
-                }
-            }
-            catch (WebException we)
-            {
-                using (HttpWebResponse httpErrorResponse = (HttpWebResponse) we.Response as HttpWebResponse)
-                {
-                    if (httpErrorResponse == null)
-                    {
-                        throw new NullReferenceException("Http Response is empty " + we);
-                    }
-
-                    _statusCode = (int) httpErrorResponse.StatusCode;
-                    using (StreamReader reader =
-                        new StreamReader(httpErrorResponse.GetResponseStream(), Encoding.UTF8))
-                    {
-                        _response = reader.ReadToEnd();
-                    }
-                }
-            }
+            return LegacyConfigClientFactory.Create().InvokeAsync<TRequest, TResponse>(
+                req,
+                actionUrl,
+                isRoot,
+                isCredit,
+                cancellationToken
+            );
         }
 
-        /// <summary>
-        /// Content header by type
-        /// </summary>
-        private static string GetContentTypeHeader(string type = null)
+        internal static TResponse InvokeWithSettings<TRequest, TResponse>(
+            TRequest req,
+            string actionUrl,
+            bool isRoot,
+            bool isCredit,
+            string protocol,
+            string contentType
+        )
+        {
+            return LegacyConfigClientFactory.Create(protocol, contentType).Invoke<TRequest, TResponse>(
+                req,
+                actionUrl,
+                isRoot,
+                isCredit
+            );
+        }
+
+        internal static Task<TResponse> InvokeWithSettingsAsync<TRequest, TResponse>(
+            TRequest req,
+            string actionUrl,
+            bool isRoot,
+            bool isCredit,
+            string protocol,
+            string contentType,
+            string apiHost,
+            string secretKey,
+            CancellationToken cancellationToken
+        )
+        {
+            return LegacyConfigClientFactory.Create(protocol, contentType, apiHost, secretKey, isCredit)
+                .InvokeAsync<TRequest, TResponse>(
+                    req,
+                    actionUrl,
+                    isRoot,
+                    isCredit,
+                    cancellationToken
+                );
+        }
+
+        internal static Task<string> SendJsonAsync(
+            string url,
+            string json,
+            IDictionary<string, string> headers,
+            CancellationToken cancellationToken
+        )
+        {
+            return LegacyConfigClientFactory.Create().SendJsonAsync(url, json, headers, cancellationToken);
+        }
+
+        internal static string GetContentTypeHeader(string type)
         {
             switch (type)
             {
                 case "xml":
-                    return "application/xml";
+                    return "application/xml; charset=utf-8";
                 case "form":
-                    return "application/x-www-form-urlencoded";
+                    return "application/x-www-form-urlencoded; charset=utf-8";
                 default:
-                    return "application/json";
+                    return "application/json; charset=utf-8";
             }
         }
+
     }
 }

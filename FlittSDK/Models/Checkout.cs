@@ -73,6 +73,9 @@ namespace FlittSDK.Models
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "payment_systems")]
         public string payment_systems { get; set; }
 
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "payment_method")]
+        public string payment_method { get; set; }
+
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "sender_email")]
         public string sender_email { get; set; }
 

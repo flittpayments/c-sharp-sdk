@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,27 +11,51 @@ namespace FlittSDK.P2pcredit
     /// </summary>
     public class P2Pcredit
     {
+        private readonly IFlittClient _client;
+
+        public P2Pcredit()
+            : this(null)
+        {
+        }
+
+        public P2Pcredit(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public P2PcreditResponse Post(P2PcreditRequest req)
         {
-            P2PcreditResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req), true);
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<P2PcreditResponse> PostAsync(
+            P2PcreditRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                true,
+                client.CreditKey
+            );
             try
             {
-                response = Client.Invoke<P2PcreditRequest, P2PcreditResponse>(req, req.ActionUrl, true, true);
+                return await EndpointInvoker.InvokeAsync<P2PcreditRequest, P2PcreditResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    true,
+                    true,
+                    cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new P2PcreditResponse {Error = c};
+                return new P2PcreditResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<P2PcreditResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 

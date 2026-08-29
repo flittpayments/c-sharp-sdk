@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,6 +11,18 @@ namespace FlittSDK.Payment
     /// </summary>
     public class Pcidss
     {
+        private readonly IFlittClient _client;
+
+        public Pcidss()
+            : this(null)
+        {
+        }
+
+        public Pcidss(IFlittClient client)
+        {
+            _client = client;
+        }
+
         /// <summary>
         /// Authorization
         /// </summary>
@@ -16,25 +30,35 @@ namespace FlittSDK.Payment
         /// <returns></returns>
         public PcidssResponse StepOne(StepOneRequest req)
         {
-            PcidssResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return StepOneAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<PcidssResponse> StepOneAsync(
+            StepOneRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<StepOneRequest, PcidssResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<StepOneRequest, PcidssResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new PcidssResponse {Error = c};
+                return new PcidssResponse {Error = c};
             }
-            
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<PcidssResponse>(response.data, true, "order");
-            }
-            
-            return response;
         }
 
         /// <summary>
@@ -44,25 +68,35 @@ namespace FlittSDK.Payment
         /// <returns></returns>
         public PcidssResponse StepTwo(StepTwoRequest req)
         {
-            PcidssResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return StepTwoAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<PcidssResponse> StepTwoAsync(
+            StepTwoRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<StepTwoRequest, PcidssResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<StepTwoRequest, PcidssResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new PcidssResponse {Error = c};
+                return new PcidssResponse {Error = c};
             }
-            
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<PcidssResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 

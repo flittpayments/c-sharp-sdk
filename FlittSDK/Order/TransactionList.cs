@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
@@ -10,23 +12,49 @@ namespace FlittSDK.Order
     /// </summary>
     public class TransactionList
     {
+        private readonly IFlittClient _client;
+
+        public TransactionList()
+            : this(null)
+        {
+        }
+
+        public TransactionList(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public TransactionListResponse Post(TransactionListRequest req)
         {
-            TransactionListResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
-            // In this api only json allowed
-            Config.ContentType = "json";
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<TransactionListResponse> PostAsync(
+            TransactionListRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, "json"),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<TransactionListRequest, TransactionListResponse>(req, req.ActionUrl, false);
+                return await client.InvokeAsync<TransactionListRequest, TransactionListResponse>(
+                    req,
+                    req.ActionUrl,
+                    false,
+                    false,
+                    cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new TransactionListResponse {Error = c};
+                return new TransactionListResponse {Error = c};
             }
-
-            return response;
         }
     }
     

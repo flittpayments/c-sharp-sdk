@@ -4,10 +4,12 @@ using System.Reflection;
 using System.Linq;
 using FlittSDK.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Formatting = Newtonsoft.Json.Formatting;
 
 namespace FlittSDK.Utils
 {
+#pragma warning disable CS0618 // Legacy Config/XML overloads are retained for binary compatibility.
     /// <summary>
     /// Class to getting params
     /// </summary>
@@ -26,7 +28,7 @@ namespace FlittSDK.Utils
             T data;
             if (type == null)
             {
-                type = Config.ContentType;
+                type = LegacyConfigClientFactory.GetContentType();
             }
 
             switch (type)
@@ -52,11 +54,21 @@ namespace FlittSDK.Utils
         /// <param name="isCredit"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
+        [Obsolete("This overload reads legacy static credentials. Use the overload with secretKey.")]
         public static string GetParamsV2<T>(T obj, bool isCredit)
         {
+            return GetParamsV2(obj, isCredit, LegacyConfigClientFactory.GetSecretKey(isCredit));
+        }
+
+        public static string GetParamsV2<T>(T obj, bool isCredit, string secretKey)
+        {
             RequestV2 data = new RequestV2();
-            data.data = Signature.Base64Encode(JsonFormatter.ConvertToJson(obj, "order"));
-            data.signature = Signature.GetRequestSignatureV2(data.data, isCredit);
+            var order = JObject.FromObject(obj);
+            order.Property("signature")?.Remove();
+            order.Property("version")?.Remove();
+            var payload = new JObject(new JProperty("order", order)).ToString(Formatting.None);
+            data.data = Signature.Base64Encode(payload);
+            data.signature = Signature.GetRequestSignatureV2(data.data, isCredit, secretKey);
             data.version = "2.0";
             return JsonFormatter.ConvertToJson(data);
         }
@@ -69,8 +81,13 @@ namespace FlittSDK.Utils
         /// <returns></returns>
         public static string ConvertRequestByContentType<T>(T obj)
         {
+            return ConvertRequestByContentType(obj, LegacyConfigClientFactory.GetContentType());
+        }
+
+        public static string ConvertRequestByContentType<T>(T obj, string contentType)
+        {
             string data;
-            switch (Config.ContentType)
+            switch (contentType ?? LegacyConfigClientFactory.GetContentType())
             {
                 case "xml":
                     data = XmlFormatter.ConvertToXml(obj);
@@ -93,6 +110,11 @@ namespace FlittSDK.Utils
         /// <returns></returns>
         public static IEnumerable<string> GetHashProperties(object postObj)
         {
+            return GetHashProperties(postObj, LegacyConfigClientFactory.GetContentType());
+        }
+
+        public static IEnumerable<string> GetHashProperties(object postObj, string contentType)
+        {
             Type tModelType = postObj.GetType();
             PropertyInfo[] arrayProperty = tModelType.GetProperties();
             var hashKeys = arrayProperty
@@ -106,7 +128,7 @@ namespace FlittSDK.Utils
                 .Select(o =>
                     o.GetGetMethod().Invoke(postObj, null).GetType() != typeof(string) &&
                     o.GetGetMethod().Invoke(postObj, null).GetType() != typeof(int)
-                        ? SetAsString(o.GetGetMethod().Invoke(postObj, null))
+                        ? SetAsString(o.GetGetMethod().Invoke(postObj, null), contentType)
                         : o.GetGetMethod().Invoke(postObj, null).ToString());
 
             return hashKeys;
@@ -117,10 +139,10 @@ namespace FlittSDK.Utils
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        private static string SetAsString(object obj)
+        private static string SetAsString(object obj, string contentType = null)
         {
             string data;
-            switch (Config.ContentType)
+            switch (contentType ?? LegacyConfigClientFactory.GetContentType())
             {
                 case "xml":
                     data = XmlFormatter.ConvertToXmlSimple(obj);
@@ -136,4 +158,5 @@ namespace FlittSDK.Utils
             return data;
         }
     }
+#pragma warning restore CS0618
 }

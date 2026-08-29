@@ -1,4 +1,7 @@
 ﻿using FlittSDK.Utils;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace FlittSDK.Checkout
@@ -8,32 +11,53 @@ namespace FlittSDK.Checkout
     /// </summary>
     public class Settlement
     {
+        private readonly IFlittClient _client;
+
+        public Settlement()
+            : this(null)
+        {
+        }
+
+        public Settlement(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public SettlementResponse Post(SettlementRequest req)
         {
-            SettlementResponse response;
-            string defaultProtocol = Config.Protocol;
-            string defaultContentType = Config.ContentType;
-            Config.ContentType = "json";
-            Config.Protocol = "2.0";
-            req.merchant_id = Config.MerchantId;
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<SettlementResponse> PostAsync(
+            SettlementRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create("2.0", "json");
+            if (client.Protocol != "2.0" || client.ContentType != "json")
+            {
+                throw new InvalidOperationException("Settlement requires protocol 2.0 with JSON.");
+            }
+
+            req.merchant_id = client.MerchantId;
             req.order_type = "settlement";
             try
             {
-                response = Client.Invoke<SettlementRequest, SettlementResponse>(req, req.ActionUrl);
+                var response = await client.InvokeAsync<SettlementRequest, SettlementResponse>(
+                    req,
+                    req.ActionUrl,
+                    true,
+                    false,
+                    cancellationToken
+                ).ConfigureAwait(false);
+                return response.data == null
+                    ? response
+                    : JsonFormatter.ConvertFromJson<SettlementResponse>(response.data, true, "order");
             }
             catch (ClientException c)
             {
-                response = new SettlementResponse {Error = c};
+                return new SettlementResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                Config.Protocol = defaultProtocol;
-                Config.ContentType = defaultContentType;
-                return JsonFormatter.ConvertFromJson<SettlementResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 

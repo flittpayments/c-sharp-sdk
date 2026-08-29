@@ -4,32 +4,77 @@ using System.Xml.Serialization;
 using FlittSDK.Models;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FlittSDK.Payment
 {
     public class Reports
     {
+        private readonly IFlittClient _client;
+
+        public Reports()
+            : this(null)
+        {
+        }
+
+        public Reports(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public ReportsResponse Post(ReportsRequest req)
         {
-            ReportsResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<ReportsResponse> PostAsync(
+            ReportsRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<ReportsRequest, ReportsResponse>(req, req.ActionUrl, false);
+                return await EndpointInvoker.InvokeAsync<ReportsRequest, ReportsResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    false,
+                    false,
+                    cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new ReportsResponse {Error = c};
+                return new ReportsResponse {Error = c};
             }
+        }
 
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<ReportsResponse>(response.data, true, "order");
-            }
+        /// <summary>
+        /// Compatibility shortcut to the separate Company Reports service.
+        /// The existing Post method continues to call the legacy /reports/
+        /// merchant endpoint.
+        /// </summary>
+        public CompanyReportsResponse GetCompanyReport(CompanyReportsRequest req)
+        {
+            return new CompanyReports(_client ?? LegacyConfigClientFactory.Create()).Get(req);
+        }
 
-            return response;
+        public Task<CompanyReportsResponse> GetCompanyReportAsync(
+            CompanyReportsRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            return new CompanyReports(_client ?? LegacyConfigClientFactory.Create())
+                .GetAsync(req, cancellationToken);
         }
     }
 

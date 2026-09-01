@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,50 +11,82 @@ namespace FlittSDK.Order
     /// </summary>
     public class Status
     {
+        private readonly IFlittClient _client;
+
+        public Status()
+            : this(null)
+        {
+        }
+
+        public Status(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public StatusResponse StatusByOrderId(StatusByOrderRequest req)
         {
-            StatusResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return StatusByOrderIdAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<StatusResponse> StatusByOrderIdAsync(
+            StatusByOrderRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<StatusByOrderRequest, StatusResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<StatusByOrderRequest, StatusResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new StatusResponse {Error = c};
+                return new StatusResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<StatusResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
 
         public StatusResponse StatusByPaymentId(StatusByPaymentRequest req)
         {
-            StatusResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return StatusByPaymentIdAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<StatusResponse> StatusByPaymentIdAsync(
+            StatusByPaymentRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<StatusByPaymentRequest, StatusResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<StatusByPaymentRequest, StatusResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new StatusResponse {Error = c};
+                return new StatusResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<StatusResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Serialization;
@@ -6,6 +7,7 @@ using System.Text;
 
 namespace FlittSDK.Utils
 {
+    [Obsolete("XML serialization is deprecated. Migrate to JSON.")]
     public abstract class XmlFormatter
     {
         // override StringWriter

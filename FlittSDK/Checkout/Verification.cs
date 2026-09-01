@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,33 +11,55 @@ namespace FlittSDK.Checkout
     /// </summary>
     public class Verification
     {
+        private readonly IFlittClient _client;
+
+        public Verification()
+            : this(null)
+        {
+        }
+
+        public Verification(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public VerificationResponse Post(VerificationRequest req)
         {
-            VerificationResponse response;
-            req.merchant_id = Config.MerchantId;
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<VerificationResponse> PostAsync(
+            VerificationRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
             req.verification = "Y";
-            req.version = Config.Protocol;
+            req.version = client.Protocol;
             if (req.verification_type == null)
             {
-                req.verification_type = "amount";
+                req.verification_type = "code";
             }
 
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<VerificationRequest, VerificationResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<VerificationRequest, VerificationResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new VerificationResponse {Error = c};
+                return new VerificationResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<VerificationResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 
@@ -53,7 +77,17 @@ namespace FlittSDK.Checkout
         [JsonProperty(PropertyName = "payment_id")]
         public int payment_id { get; set; }
 
-        [JsonProperty(PropertyName = "Verification_url")]
-        public string Verification_url { get; set; }
+        [JsonProperty(PropertyName = "checkout_url")]
+        public string checkout_url { get; set; }
+
+        /// <summary>
+        /// Backward-compatible alias for the historically mis-cased property.
+        /// </summary>
+        [JsonIgnore]
+        public string Verification_url
+        {
+            get { return checkout_url; }
+            set { checkout_url = value; }
+        }
     }
 }

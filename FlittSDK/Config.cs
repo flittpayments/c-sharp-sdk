@@ -1,5 +1,12 @@
-﻿namespace FlittSDK
+﻿using System;
+
+namespace FlittSDK
 {
+    /// <summary>
+    /// Legacy process-wide configuration. New code should construct a
+    /// FlittClient with FlittClientOptions and inject IFlittClient.
+    /// </summary>
+    [Obsolete("Static Config is retained for compatibility only. Use FlittClientOptions and FlittClient.")]
     public static class Config
     {
         /// <summary>
@@ -37,6 +44,17 @@
         /// api host
         /// </summary>
         public static string ApiHost = "pay.flitt.com";
+
+        /// <summary>
+        /// HTTP request timeout. The default matches the Python SDK.
+        /// </summary>
+        public static TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// HTTP transport used by the SDK. Replace it to integrate a custom
+        /// HttpClient pipeline or a deterministic test transport.
+        /// </summary>
+        public static IFlittTransport Transport { get; set; } = new HttpClientTransport();
 
 
         /// <summary>

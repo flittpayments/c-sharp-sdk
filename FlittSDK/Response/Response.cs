@@ -15,6 +15,18 @@ namespace FlittSDK.Response
     /// </summary>
     public class Response
     {
+        private readonly IFlittClient _client;
+
+        public Response()
+            : this(null)
+        {
+        }
+
+        public Response(IFlittClient client)
+        {
+            _client = client;
+        }
+
         /// <summary>
         /// Parsing Response/Callback
         /// </summary>
@@ -24,17 +36,23 @@ namespace FlittSDK.Response
         /// <returns></returns>
         public ResponseModel GetResponse(string response, string type = null, bool isCredit = false)
         {
-            ResponseModel data = RequiredParams.ConvertResponseByContentType<ResponseModel>(response, false, type);
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            string contentType = type ?? client.ContentType;
+            ResponseModel data = RequiredParams.ConvertResponseByContentType<ResponseModel>(
+                response,
+                false,
+                contentType
+            );
             bool v2 = ISv2Resp(data);
             try
             {
                 if (v2)
                 {
-                    IsSignatureValidV2(data, isCredit);
+                    IsSignatureValidV2(data, isCredit, client);
                 }
                 else
                 {
-                    IsSignatureValid(data, response, type, isCredit);
+                    IsSignatureValid(data, response, contentType, isCredit, client);
                 }
             }
             catch (SignatureException e)
@@ -55,7 +73,11 @@ namespace FlittSDK.Response
         /// <param name="data"></param>
         /// <param name="isCredit"></param>
         /// <exception cref="SignatureException"></exception>
-        private void IsSignatureValidV2(ResponseModel data, bool isCredit)
+        private static void IsSignatureValidV2(
+            ResponseModel data,
+            bool isCredit,
+            IFlittClient client
+        )
         {
             if (data.signature == null)
             {
@@ -63,8 +85,13 @@ namespace FlittSDK.Response
                     {SignatureString = data.signature, CalculatedSignature = "No Signature in request"};
             }
 
-            string calculatedSign = Signature.GetRequestSignatureV2(Signature.Base64Encode(data.data), isCredit);
-            if (data.signature != calculatedSign)
+            string secretKey = isCredit ? client.CreditKey : client.SecretKey;
+            string calculatedSign = Signature.GetRequestSignatureV2(
+                Signature.Base64Encode(data.data),
+                isCredit,
+                secretKey
+            );
+            if (!Signature.ConstantTimeEquals(data.signature, calculatedSign))
             {
                 throw new SignatureException {SignatureString = data.signature, CalculatedSignature = calculatedSign};
             }
@@ -77,7 +104,13 @@ namespace FlittSDK.Response
         /// <param name="type"></param>
         /// <param name="isCredit"></param>
         /// <exception cref="SignatureException"></exception>
-        private void IsSignatureValid(ResponseModel data, string response, string type, bool isCredit)
+        private void IsSignatureValid(
+            ResponseModel data,
+            string response,
+            string type,
+            bool isCredit,
+            IFlittClient client
+        )
         {
             if (data.signature == null)
             {
@@ -85,9 +118,13 @@ namespace FlittSDK.Response
                     {SignatureString = data.signature, CalculatedSignature = "No Signature in request"};
             }
 
-            string calculatedSign =
-                Signature.GetRequestSignature(getResponseSignatrureParams(response, type), isCredit);
-            if (data.signature != calculatedSign)
+            string secretKey = isCredit ? client.CreditKey : client.SecretKey;
+            string calculatedSign = Signature.GetRequestSignature(
+                getResponseSignatrureParams(response, type),
+                isCredit,
+                secretKey
+            );
+            if (!Signature.ConstantTimeEquals(data.signature, calculatedSign))
             {
                 throw new SignatureException {SignatureString = data.signature, CalculatedSignature = calculatedSign};
             }
@@ -100,11 +137,6 @@ namespace FlittSDK.Response
         /// <returns></returns>
         private IEnumerable<string> getResponseSignatrureParams(string response, string type = null)
         {
-            if (type == null)
-            {
-                type = Config.ContentType;
-            }
-
             NameValueCollection parsed = null;
             switch (type)
             {

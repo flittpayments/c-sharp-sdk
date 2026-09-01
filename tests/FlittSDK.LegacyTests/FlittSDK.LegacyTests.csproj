@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);CS0618</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../FlittSDK/FlittSDK.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../FlittSDKTest/Checkout.cs" Link="Checkout.cs" />
+    <Compile Include="../../FlittSDKTest/P2Pcredit.cs" Link="P2Pcredit.cs" />
+    <Compile Include="../../FlittSDKTest/Pcidss.cs" Link="Pcidss.cs" />
+    <Compile Include="../../FlittSDKTest/Response.cs" Link="Response.cs" />
+  </ItemGroup>
+</Project>

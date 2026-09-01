@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,27 +11,49 @@ namespace FlittSDK.Checkout
     /// </summary>
     public class Url
     {
+        private readonly IFlittClient _client;
+
+        public Url()
+            : this(null)
+        {
+        }
+
+        public Url(IFlittClient client)
+        {
+            _client = client;
+        }
+
         public CheckoutResponse Post(CheckoutRequest req)
         {
-            CheckoutResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return PostAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<CheckoutResponse> PostAsync(
+            CheckoutRequest req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<CheckoutRequest, CheckoutResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<CheckoutRequest, CheckoutResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new CheckoutResponse {Error = c};
+                return new CheckoutResponse {Error = c};
             }
-
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<CheckoutResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
     }
 

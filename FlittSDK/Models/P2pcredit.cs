@@ -1,5 +1,6 @@
 ﻿using System.Xml.Serialization;
 using Newtonsoft.Json;
+using FlittSDK.Utils;
 
 namespace FlittSDK.Models
 {
@@ -105,6 +106,7 @@ namespace FlittSDK.Models
         public new string signature { get; set; }
         
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "additional_info")]
+        [JsonConverter(typeof(JsonTokenStringConverter))]
         public string additional_info { get; set; }
 
         [JsonIgnore] [XmlIgnore] public ClientException Error { get; set; }

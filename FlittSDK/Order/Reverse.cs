@@ -1,4 +1,6 @@
 ﻿using System.Xml.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using FlittSDK.Utils;
 using Newtonsoft.Json;
 
@@ -9,6 +11,18 @@ namespace FlittSDK.Order
     /// </summary>
     public class Reverse
     {
+        private readonly IFlittClient _client;
+
+        public Reverse()
+            : this(null)
+        {
+        }
+
+        public Reverse(IFlittClient client)
+        {
+            _client = client;
+        }
+
         /// <summary>
         /// By Order Id
         /// </summary>
@@ -16,25 +30,35 @@ namespace FlittSDK.Order
         /// <returns></returns>
         public ReverseByOrderResponse ByOrderID(ReverseByOrder req)
         {
-            ReverseByOrderResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.version = Config.Protocol;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return ByOrderIDAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<ReverseByOrderResponse> ByOrderIDAsync(
+            ReverseByOrder req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<ReverseByOrder, ReverseByOrderResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<ReverseByOrder, ReverseByOrderResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new ReverseByOrderResponse {Error = c};
+                return new ReverseByOrderResponse {Error = c};
             }
-            
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<ReverseByOrderResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
         /// <summary>
         /// Reverse By Payment ID
@@ -43,24 +67,35 @@ namespace FlittSDK.Order
         /// <returns></returns>
         public ReverseByPaymentResponse ByPaymentID(ReverseByPayment req)
         {
-            ReverseByPaymentResponse response;
-            req.merchant_id = Config.MerchantId;
-            req.signature = Signature.GetRequestSignature(RequiredParams.GetHashProperties(req));
+            return ByPaymentIDAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<ReverseByPaymentResponse> ByPaymentIDAsync(
+            ReverseByPayment req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
+            req.merchant_id = client.MerchantId;
+            req.version = client.Protocol;
+            req.signature = Signature.GetRequestSignature(
+                RequiredParams.GetHashProperties(req, client.ContentType),
+                false,
+                client.SecretKey
+            );
             try
             {
-                response = Client.Invoke<ReverseByPayment, ReverseByPaymentResponse>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<ReverseByPayment, ReverseByPaymentResponse>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new ReverseByPaymentResponse {Error = c};
+                return new ReverseByPaymentResponse {Error = c};
             }
-            
-            if (response.data != null && Config.Protocol == "2.0")
-            {
-                return JsonFormatter.ConvertFromJson<ReverseByPaymentResponse>(response.data, true, "order");
-            }
-
-            return response;
         }
         /// <summary>
         /// Reverse By Transaction Id
@@ -69,22 +104,71 @@ namespace FlittSDK.Order
         /// <returns></returns>
         public ReverseByTransactionId ByTransactionID(ReverseByTransaction req)
         {
-            ReverseByTransactionId response;
+            return ByTransactionIDAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<ReverseByTransactionId> ByTransactionIDAsync(
+            ReverseByTransaction req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var client = _client ?? LegacyConfigClientFactory.Create();
             try
             {
-                response = Client.Invoke<ReverseByTransaction, ReverseByTransactionId>(req, req.ActionUrl);
+                return await EndpointInvoker.InvokeAsync<ReverseByTransaction, ReverseByTransactionId>(
+                    client,
+                    req,
+                    req.ActionUrl,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
             }
             catch (ClientException c)
             {
-                response = new ReverseByTransactionId {Error = c};
+                return new ReverseByTransactionId {Error = c};
             }
-            
-            if (response.data != null && Config.Protocol == "2.0")
+        }
+
+        /// <summary>
+        /// Reverse the full available amount, excluding client fees and any
+        /// amount that has already been reversed.
+        /// </summary>
+        public ReverseByOrderResponse Full(ReverseByOrder req)
+        {
+            return FullAsync(req).GetAwaiter().GetResult();
+        }
+
+        public async Task<ReverseByOrderResponse> FullAsync(
+            ReverseByOrder req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            var status = await new Status(_client).StatusByOrderIdAsync(new StatusByOrderRequest
             {
-                return JsonFormatter.ConvertFromJson<ReverseByTransactionId>(response.data, true, "order");
+                order_id = req.order_id
+            }, cancellationToken).ConfigureAwait(false);
+            if (status.Error != null)
+            {
+                return new ReverseByOrderResponse {Error = status.Error};
             }
 
-            return response;
+            req.amount = OrderAmounts.ReverseAmount(status);
+            return await ByOrderIDAsync(req, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Alias matching Python SDK's reverse_full method.
+        /// </summary>
+        public ReverseByOrderResponse ReverseFull(ReverseByOrder req)
+        {
+            return Full(req);
+        }
+
+        public Task<ReverseByOrderResponse> ReverseFullAsync(
+            ReverseByOrder req,
+            CancellationToken cancellationToken = default(CancellationToken)
+        )
+        {
+            return FullAsync(req, cancellationToken);
         }
     }
 

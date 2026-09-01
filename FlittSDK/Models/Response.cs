@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 using Newtonsoft.Json;
+using FlittSDK.Utils;
 
 namespace FlittSDK.Models
 {
@@ -122,6 +123,7 @@ namespace FlittSDK.Models
         public int? external_ref { get; set; }
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "additional_info")]
+        [JsonConverter(typeof(JsonTokenStringConverter))]
         public string additional_info { get; set; }
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, PropertyName = "transaction")]
